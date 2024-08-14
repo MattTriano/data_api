@@ -73,6 +73,11 @@ class DataCatalog:
         insp = self._get_inspector()
         return insp.get_table_names(schema=schema)
 
+    def get_view_names(self, schema: str) -> list[str]:
+        insp = self._get_inspector()
+        return insp.get_view_names(schema=schema)
+
+
     def command(self, sql: str) -> None:
         try:
             with self.engine.connect() as conn:
