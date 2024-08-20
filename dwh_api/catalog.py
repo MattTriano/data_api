@@ -3,6 +3,8 @@ from pathlib import Path
 from typing import Optional
 
 import pandas as pd
+from geoalchemy2 import Geometry, Geography
+import geopandas as gpd
 from sqlalchemy import create_engine, inspect, text
 from sqlalchemy.engine.base import Engine
 from sqlalchemy.engine.url import URL
@@ -77,21 +79,17 @@ class DataCatalog:
         insp = self._get_inspector()
         return insp.get_view_names(schema=schema)
 
-
     def command(self, sql: str) -> None:
         try:
             with self.engine.connect() as conn:
                 with conn.begin():
                     conn.execute(text(sql))
         except Exception as e:
-            raise Exception(
-                f"Ran into an error when running sql command:\n{sql}\nError: {e}"
-            )
+            raise Exception(f"Ran into an error when running sql command:\n{sql}\nError: {e}")
 
-    def query(self, sql: str) -> pd.DataFrame:
+    def query(self, sql: str, geom_col: str = "geometry") -> gpd.GeoDataFrame:
         with self.engine.connect() as conn:
-            result = conn.execute(text(sql))
-            results_df = pd.DataFrame(result.fetchall(), columns=result.keys())
+            results_gdf = gpd.read_postgis(sql=text(sql), con=conn, geom_col=geom_col)
             if self.engine._is_future:
                 conn.commit()
-        return results_df
+        return results_gdf

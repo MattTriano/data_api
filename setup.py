@@ -15,5 +15,6 @@ setup(
         "pandas",
         "psycopg2-binary",
         "sqlalchemy>=2.0",
+        "GeoAlchemy2",
     ],
 )
