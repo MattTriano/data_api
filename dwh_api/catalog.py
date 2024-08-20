@@ -1,3 +1,4 @@
+from functools import cached_property
 import os
 from pathlib import Path
 from typing import Optional
@@ -33,6 +34,20 @@ class DataCatalog:
             self.engine = self._get_pg_engine(user, password, host, port, db_name)
         else:
             raise KeyError("At least one of the necessary db cred parts was missing")
+
+    @cached_property
+    def geo_dtypes(self):
+        with self.engine.connect() as conn:
+            result = conn.execute(
+                text(
+                    """
+                SELECT oid, typname
+                FROM pg_type
+                WHERE typname IN ('geometry', 'geography')
+            """
+                )
+            )
+            return {row[0]: row[1] for row in result}
 
     def _read_env_to_dict(self, file_path: Path) -> dict:
         env_dict = {}
@@ -87,9 +102,26 @@ class DataCatalog:
         except Exception as e:
             raise Exception(f"Ran into an error when running sql command:\n{sql}\nError: {e}")
 
-    def query(self, sql: str, geom_col: str = "geometry") -> gpd.GeoDataFrame:
+    def geospatial_columns_in_query(self, sql):
         with self.engine.connect() as conn:
-            results_gdf = gpd.read_postgis(sql=text(sql), con=conn, geom_col=geom_col)
+            result = conn.execute(text(sql))
+            geospatial_columns = {
+                c.name: self.geo_dtypes[c.type_code]
+                for c in result.cursor.description
+                if c.type_code in self.geo_dtypes.keys()
+            }
+        return geospatial_columns
+
+    def query(self, sql: str, geom_col: Optional[str] = None) -> gpd.GeoDataFrame:
+        geospatial_columns = self.geospatial_columns_in_query(sql)
+        with self.engine.connect() as conn:
+            if len(geospatial_columns) > 0:
+                if geom_col not in geospatial_columns.keys():
+                    geom_col = list(geospatial_columns.keys())[0]
+                results_df = gpd.read_postgis(sql=text(sql), con=conn, geom_col=geom_col)
+            else:
+                result = conn.execute(text(sql))
+                results_df = pd.DataFrame(result.fetchall(), columns=result.keys())
             if self.engine._is_future:
                 conn.commit()
-        return results_gdf
+        return results_df
