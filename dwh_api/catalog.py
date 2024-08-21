@@ -1,7 +1,7 @@
 from functools import cached_property
 import os
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Union
 
 import pandas as pd
 from geoalchemy2 import Geometry, Geography
@@ -112,16 +112,19 @@ class DataCatalog:
             }
         return geospatial_columns
 
-    def query(self, sql: str, geom_col: Optional[str] = None) -> gpd.GeoDataFrame:
+    def query(self, sql: str) -> Union[gpd.GeoDataFrame, pd.DataFrame]:
         geospatial_columns = self.geospatial_columns_in_query(sql)
         with self.engine.connect() as conn:
-            if len(geospatial_columns) > 0:
-                if geom_col not in geospatial_columns.keys():
-                    geom_col = list(geospatial_columns.keys())[0]
-                results_df = gpd.read_postgis(sql=text(sql), con=conn, geom_col=geom_col)
+            if geospatial_columns:
+                df = gpd.read_postgis(
+                    sql=text(sql), con=conn, geom_col=next(iter(geospatial_columns.keys()), None)
+                )
+                for col, dtype in geospatial_columns.items():
+                    if col != df.geometry.name:
+                        df[col] = gpd.GeoSeries.from_wkb(df[col], crs=df.crs)
             else:
                 result = conn.execute(text(sql))
-                results_df = pd.DataFrame(result.fetchall(), columns=result.keys())
+                df = pd.DataFrame(result.fetchall(), columns=result.keys())
             if self.engine._is_future:
                 conn.commit()
-        return results_df
+            return df
