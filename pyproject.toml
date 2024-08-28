@@ -40,6 +40,7 @@ exclude = [
     "*.egg-info",
     "build",
     "dist",
+    "scraps",
 ]
 
 [tool.ruff.lint]

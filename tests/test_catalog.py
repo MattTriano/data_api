@@ -4,13 +4,13 @@ from urllib.request import urlretrieve
 import geopandas as gpd
 import pytest
 from shapely import (
-    Geometry,
-    GeometryCollection,
-    GeometryType,
+    #Geometry,
+    #GeometryCollection,
+    #GeometryType,
     LineString,
-    MultiLineString,
-    MultiPoint,
-    MultiPolygon,
+    #MultiLineString,
+    #MultiPoint,
+    #MultiPolygon,
     Point,
     Polygon,
 )
@@ -61,15 +61,15 @@ def chicago_boundary_gdf():
 
 
 def test_select_point(catalog, chicago_boundary_gdf):
-    a_pt = catalog.query(
-        sql="""SELECT ST_GeomFromText('POINT(-87.631304 41.884749)', 4326) AS point"""
+    gdf = catalog.query(
+        sql="""SELECT ST_GeomFromText('POINT(-87.631304 41.884749)', 4326) AS geom"""
     )
-    point_value = a_pt["point"].values[0]
-    assert isinstance(a_pt, gpd.GeoDataFrame)
-    assert a_pt["point"].crs == "EPSG:4326"
-    assert isinstance(point_value, Point)
-    assert point_value.geom_type == "Point"
-    assert point_value.within(chicago_boundary_gdf.geometry.union_all())
+    geom_value = gdf["geom"].values[0]
+    assert isinstance(gdf, gpd.GeoDataFrame)
+    assert gdf["geom"].crs == "EPSG:4326"
+    assert isinstance(geom_value, Point)
+    assert geom_value.geom_type == "Point"
+    assert geom_value.within(chicago_boundary_gdf.geometry.union_all())
 
 
 def test_select_linestring(catalog, chicago_boundary_gdf):
@@ -85,5 +85,26 @@ def test_select_linestring(catalog, chicago_boundary_gdf):
     assert gdf["geom"].crs == "EPSG:4326"
     assert isinstance(geom_value, LineString)
     assert geom_value.geom_type == "LineString"
-    assert geom_value.within(chicago_boundary_gdf.geometry.union_all()) == False
+    assert not geom_value.within(chicago_boundary_gdf.geometry.union_all())
+    assert geom_value.intersects(chicago_boundary_gdf.geometry.union_all())
+
+def test_select_polygon(catalog, chicago_boundary_gdf):
+    gdf = catalog.query(
+        sql="""
+            SELECT
+                ST_GeomFromText('POLYGON((
+                    -87.631304 41.884749,
+                    -87.683887 42.074010,
+                    -87.633514 41.963258,
+                    -87.631304 41.884749
+                ))',
+                4326
+            ) AS geom"""
+    )
+    geom_value = gdf["geom"].values[0]
+    assert isinstance(gdf, gpd.GeoDataFrame)
+    assert gdf["geom"].crs == "EPSG:4326"
+    assert isinstance(geom_value, Polygon)
+    assert geom_value.geom_type == "Polygon"
+    assert not geom_value.within(chicago_boundary_gdf.geometry.union_all())
     assert geom_value.intersects(chicago_boundary_gdf.geometry.union_all())

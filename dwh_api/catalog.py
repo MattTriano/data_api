@@ -4,7 +4,7 @@ from pathlib import Path
 from typing import Optional, Union
 
 import pandas as pd
-from geoalchemy2 import Geometry, Geography
+#from geoalchemy2 import Geometry, Geography
 import geopandas as gpd
 from sqlalchemy import create_engine, inspect, text
 from sqlalchemy.engine.base import Engine
