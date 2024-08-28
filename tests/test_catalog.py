@@ -214,6 +214,56 @@ def test_select_geometrycollection(catalog, chicago_boundary_gdf):
     assert isinstance(geom_value.geoms[3], Polygon)
 
 
+def test_select_multiple_geospatial_columns(catalog, chicago_boundary_gdf):
+    gdf = catalog.query(
+        sql="""
+            SELECT
+                ST_GeomFromText(
+                    'LINESTRING(
+                        -87.921243 41.914808,
+                        -87.632352 41.883793,
+                        -87.429500 41.877629
+                    )',
+                    4326
+                ) AS ls_geom,
+                ST_GeomFromText(
+                    'POLYGON((
+                        -87.631304 41.884749,
+                        -87.683887 42.074010,
+                        -87.633514 41.963258,
+                        -87.631304 41.884749
+                    ))',
+                    4326
+                ) AS poly_geom,
+                ST_GeomFromText('POINT(-87.631304 41.884749)', 4326) AS pt_geom"""
+    )
+    assert isinstance(gdf, gpd.GeoDataFrame)
+
+    geom_col = "ls_geom"
+    geom_value = gdf[geom_col].values[0]
+    assert gdf[geom_col].crs == "EPSG:4326"
+    assert isinstance(geom_value, LineString)
+    assert geom_value.geom_type == "LineString"
+    assert not geom_value.within(chicago_boundary_gdf.geometry.union_all())
+    assert geom_value.intersects(chicago_boundary_gdf.geometry.union_all())
+
+    geom_col = "poly_geom"
+    geom_value = gdf[geom_col].values[0]
+    assert gdf[geom_col].crs == "EPSG:4326"
+    assert isinstance(geom_value, Polygon)
+    assert geom_value.geom_type == "Polygon"
+    assert not geom_value.within(chicago_boundary_gdf.geometry.union_all())
+    assert geom_value.intersects(chicago_boundary_gdf.geometry.union_all())
+
+    geom_col = "pt_geom"
+    geom_value = gdf[geom_col].values[0]
+    assert gdf[geom_col].crs == "EPSG:4326"
+    assert isinstance(geom_value, Point)
+    assert geom_value.geom_type == "Point"
+    assert geom_value.within(chicago_boundary_gdf.geometry.union_all())
+    assert geom_value.intersects(chicago_boundary_gdf.geometry.union_all())
+
+
 def test_select_non_geospatial_types(catalog):
     df = catalog.query(
         sql="""
