@@ -1,0 +1,5 @@
+.ipynb_checkpoints
+tests/test_data
+__pycache__
+*.egg-info
+scraps

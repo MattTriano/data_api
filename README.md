@@ -1,6 +1,6 @@
-# IEI Data API
+# Data API
 
-A pythonic interface for interacting with the IEI data warehouse.
+A pythonic interface for interacting with any PostGIS or PostgreSQL data warehouses.
 
 ## Installation
 
@@ -17,10 +17,10 @@ First, create a .env.dwh file and define the following environment variables.
 ```bash
 POSTGRES_USER="dwh_db_user"
 POSTGRES_PASSWORD="dwh_db_pass"
-POSTGRES_DB="iei_dwh"
+POSTGRES_DB="dwh_db"
 ```
 
-Then you can import it and (assuming you're running from a context on Abbott), access the database.
+Then you can import it and access the database.
 
 ```python
 from pathlib import Path
