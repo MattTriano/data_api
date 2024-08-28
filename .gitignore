@@ -1,0 +1,4 @@
+.ipynb_checkpoints
+tests/test_data
+
+*.egg-info

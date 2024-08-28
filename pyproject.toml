@@ -1,0 +1,52 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "dwh_api"
+version = "0.1.0"
+description = "A pythonic interface to PostGIS/PostgreSQL data warehouses."
+authors = [
+    {name = "Matt Triano", email = "matt.triano@gmail.com"},
+]
+readme = "README.md"
+requires-python = ">=3.7"
+dependencies = [
+    "psycopg2-binary",
+    "sqlalchemy>=2.0",
+    "geopandas>=1.0",
+    "GeoAlchemy2",
+]
+
+[tool.setuptools]
+packages = ["dwh_api"]
+
+[project.optional-dependencies]
+dev = [
+    "black",
+    "pytest>=6.0",
+    "ruff",
+]
+
+[tool.ruff]
+line-length = 100
+exclude = [
+    ".git",
+    ".ipynb_checkpoints",
+    ".mypy_cache",
+    ".pytest_cache",
+    ".ruff_cache",
+    "__pycache__",
+    "*.egg-info",
+    "build",
+    "dist",
+]
+
+[tool.ruff.lint]
+select = ["E", "F", "W"]
+ignore = []
+
+[tool.pytest.ini_options]
+addopts = "-vv -s"
+testpaths = ["tests"]
+python_files = "test_*.py"
