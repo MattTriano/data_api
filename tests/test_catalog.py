@@ -4,13 +4,11 @@ from urllib.request import urlretrieve
 import geopandas as gpd
 import pytest
 from shapely import (
-    #Geometry,
-    #GeometryCollection,
-    #GeometryType,
+    GeometryCollection,
     LineString,
-    #MultiLineString,
+    MultiLineString,
     MultiPoint,
-    #MultiPolygon,
+    MultiPolygon,
     Point,
     Polygon,
 )
@@ -88,6 +86,7 @@ def test_select_linestring(catalog, chicago_boundary_gdf):
     assert not geom_value.within(chicago_boundary_gdf.geometry.union_all())
     assert geom_value.intersects(chicago_boundary_gdf.geometry.union_all())
 
+
 def test_select_polygon(catalog, chicago_boundary_gdf):
     gdf = catalog.query(
         sql="""
@@ -109,6 +108,7 @@ def test_select_polygon(catalog, chicago_boundary_gdf):
     assert not geom_value.within(chicago_boundary_gdf.geometry.union_all())
     assert geom_value.intersects(chicago_boundary_gdf.geometry.union_all())
 
+
 def test_select_multipoint(catalog, chicago_boundary_gdf):
     gdf = catalog.query(
         sql="""
@@ -126,3 +126,88 @@ def test_select_multipoint(catalog, chicago_boundary_gdf):
     assert geom_value.geom_type == "MultiPoint"
     assert not geom_value.within(chicago_boundary_gdf.geometry.union_all())
     assert geom_value.intersects(chicago_boundary_gdf.geometry.union_all())
+
+
+def test_select_multipolygon(catalog, chicago_boundary_gdf):
+    gdf = catalog.query(
+        sql="""
+            SELECT ST_GeomFromText(
+                'MULTIPOLYGON((
+                    (
+                        -87.702 41.702,
+                        -87.687 41.702,
+                        -87.687 41.690,
+                        -87.702 41.690,
+                        -87.702 41.702
+                    ), (
+                        -87.695 41.698,
+                        -87.692 41.698,
+                        -87.692 41.693,
+                        -87.695 41.693,
+                        -87.695 41.698
+                    )
+                ))',
+                4326
+            ) AS geom"""
+    )
+    geom_value = gdf["geom"].values[0]
+    assert isinstance(gdf, gpd.GeoDataFrame)
+    assert gdf["geom"].crs == "EPSG:4326"
+    assert isinstance(geom_value, MultiPolygon)
+    assert geom_value.geom_type == "MultiPolygon"
+    assert not geom_value.within(chicago_boundary_gdf.geometry.union_all())
+    assert geom_value.intersects(chicago_boundary_gdf.geometry.union_all())
+
+
+def test_select_multilinestring(catalog, chicago_boundary_gdf):
+    gdf = catalog.query(
+        sql="""
+        SELECT ST_GeomFromText(
+            'MULTILINESTRING(
+                (-87.717 41.695, -87.699 41.695), (-87.689 41.695, -87.650 41.695)
+            )',
+            4326
+        ) AS geom
+        """
+    )
+    geom_value = gdf["geom"].values[0]
+    assert isinstance(gdf, gpd.GeoDataFrame)
+    assert gdf["geom"].crs == "EPSG:4326"
+    assert isinstance(geom_value, MultiLineString)
+    assert geom_value.geom_type == "MultiLineString"
+    assert geom_value.within(chicago_boundary_gdf.geometry.union_all())
+    assert geom_value.intersects(chicago_boundary_gdf.geometry.union_all())
+
+
+def test_select_geometrycollection(catalog, chicago_boundary_gdf):
+    gdf = catalog.query(
+        sql="""
+            SELECT ST_GeomFromText(
+                'GEOMETRYCOLLECTION(
+                    POINT(-87.6378195 41.8873),
+                    LINESTRING(-87.638120 41.888, -87.638120 41.8877),
+                    LINESTRING(-87.637500 41.888, -87.637500 41.8877),
+                    POLYGON((
+                        -87.638666 41.886925,
+                        -87.638139 41.886668,
+                        -87.637500 41.886668,
+                        -87.636973 41.886925,
+                        -87.637500 41.886411,
+                        -87.638139 41.886411,
+                        -87.638666 41.886925
+                    ))
+                )',
+                4326
+            ) AS geom"""
+    )
+    geom_value = gdf["geom"].values[0]
+    assert isinstance(gdf, gpd.GeoDataFrame)
+    assert gdf["geom"].crs == "EPSG:4326"
+    assert isinstance(geom_value, GeometryCollection)
+    assert geom_value.geom_type == "GeometryCollection"
+    assert geom_value.within(chicago_boundary_gdf.geometry.union_all())
+    assert geom_value.intersects(chicago_boundary_gdf.geometry.union_all())
+    assert isinstance(geom_value.geoms[0], Point)
+    assert isinstance(geom_value.geoms[1], LineString)
+    assert isinstance(geom_value.geoms[2], LineString)
+    assert isinstance(geom_value.geoms[3], Polygon)
