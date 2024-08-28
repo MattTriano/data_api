@@ -9,7 +9,7 @@ from shapely import (
     #GeometryType,
     LineString,
     #MultiLineString,
-    #MultiPoint,
+    MultiPoint,
     #MultiPolygon,
     Point,
     Polygon,
@@ -106,5 +106,23 @@ def test_select_polygon(catalog, chicago_boundary_gdf):
     assert gdf["geom"].crs == "EPSG:4326"
     assert isinstance(geom_value, Polygon)
     assert geom_value.geom_type == "Polygon"
+    assert not geom_value.within(chicago_boundary_gdf.geometry.union_all())
+    assert geom_value.intersects(chicago_boundary_gdf.geometry.union_all())
+
+def test_select_multipoint(catalog, chicago_boundary_gdf):
+    gdf = catalog.query(
+        sql="""
+            SELECT
+                ST_GeomFromText('MULTIPOINT(
+                    (-87.631304 41.884749), (-87.683887 42.074010),  (-87.633514 41.963258)
+                )',
+                4326
+            ) AS geom"""
+    )
+    geom_value = gdf["geom"].values[0]
+    assert isinstance(gdf, gpd.GeoDataFrame)
+    assert gdf["geom"].crs == "EPSG:4326"
+    assert isinstance(geom_value, MultiPoint)
+    assert geom_value.geom_type == "MultiPoint"
     assert not geom_value.within(chicago_boundary_gdf.geometry.union_all())
     assert geom_value.intersects(chicago_boundary_gdf.geometry.union_all())
