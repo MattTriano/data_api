@@ -2,6 +2,7 @@ import os
 from pathlib import Path
 from urllib.request import urlretrieve
 import geopandas as gpd
+import pandas as pd
 import pytest
 from shapely import (
     GeometryCollection,
@@ -211,3 +212,43 @@ def test_select_geometrycollection(catalog, chicago_boundary_gdf):
     assert isinstance(geom_value.geoms[1], LineString)
     assert isinstance(geom_value.geoms[2], LineString)
     assert isinstance(geom_value.geoms[3], Polygon)
+
+
+def test_select_non_geospatial_types(catalog):
+    df = catalog.query(
+        sql="""
+    SELECT
+        42                               AS int_column,
+        3.14159::DOUBLE PRECISION        AS float_column,
+        'Hello, World!'                  AS varchar_column,
+        '2024-08-27'::TIMESTAMP          AS date_column,
+        '2024-08-27 15:30:00'::TIMESTAMP AS timestamp_column,
+        TRUE                             AS t_bool_column,
+        FALSE                            AS f_bool_column,
+        ARRAY[1, 2, 3, 4, 5]             AS int_array_column,
+        ARRAY['apple', 'banana', 'cherry'] AS varchar_array_column
+    """
+    )
+
+    assert isinstance(df, pd.DataFrame)
+    assert len(df) == 1
+
+    assert df["int_column"].dtype == "int64"
+    assert df["float_column"].dtype == "float64"
+    assert df["varchar_column"].dtype == "object"
+    assert df["date_column"].dtype == "datetime64[ns]"
+    assert df["timestamp_column"].dtype == "datetime64[ns]"
+    assert df["t_bool_column"].dtype == "bool"
+    assert df["f_bool_column"].dtype == "bool"
+    assert df["int_array_column"].dtype == "object"
+    assert df["varchar_array_column"].dtype == "object"
+
+    assert df["int_column"].values[0] == 42
+    assert pytest.approx(df["float_column"].values[0]) == 3.14159
+    assert df["varchar_column"].values[0] == "Hello, World!"
+    assert df["date_column"].values[0] == pd.Timestamp("2024-08-27")
+    assert df["timestamp_column"].values[0] == pd.Timestamp("2024-08-27 15:30:00")
+    assert df["t_bool_column"].values[0]
+    assert not df["f_bool_column"].values[0]
+    assert df["int_array_column"].values[0] == [1, 2, 3, 4, 5]
+    assert df["varchar_array_column"].values[0] == ["apple", "banana", "cherry"]
