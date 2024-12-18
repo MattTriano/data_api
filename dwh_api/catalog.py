@@ -4,11 +4,13 @@ from pathlib import Path
 from typing import Optional, Union
 
 import pandas as pd
-#from geoalchemy2 import Geometry, Geography
+from geoalchemy2 import Geometry, Geography
 import geopandas as gpd
 from sqlalchemy import create_engine, inspect, text
 from sqlalchemy.engine.base import Engine
 from sqlalchemy.engine.url import URL
+from sqlalchemy.exc import NoSuchTableError
+from sqlalchemy.schema import MetaData, Table
 
 
 class DataCatalog:
@@ -82,6 +84,32 @@ class DataCatalog:
     def _get_inspector(self):
         return inspect(self.engine)
 
+    def _get_reflected_db_table(self, table_name: str, schema: str) -> Table:
+        try:
+            metadata_obj = MetaData(schema=schema)
+            metadata_obj.reflect(bind=self.engine)
+            full_table_name = f"{schema}.{table_name}"
+            if full_table_name in metadata_obj.tables.keys():
+                return metadata_obj.tables[full_table_name]
+            else:
+                raise NoSuchTableError(f"Table {table_name} not found in schema {schema}.")
+        except Exception as err:
+            raise Exception(
+                f"Error while attempting table reflection. {err}, error type: {type(err)}"
+            )
+
+    def get_table_sqlalchemy_col_objects(self, table_name: str, schema: str) -> list:
+        insp = self._get_inspector()
+        schema_tables = insp.get_table_names(schema=schema)
+        if table_name in schema_tables:
+            ref_table = self._get_reflected_db_table(table_name=table_name, schema=schema)
+        else:
+            raise NoSuchTableError(
+                f"Table {table_name} not present in schema {schema}. Can't mock up."
+            )
+        table_cols = ref_table.columns.values()
+        return table_cols
+
     def get_schema_names(self) -> list[str]:
         insp = self._get_inspector()
         return insp.get_schema_names()
@@ -111,6 +139,41 @@ class DataCatalog:
                 if c.type_code in self.geo_dtypes.keys()
             }
         return geospatial_columns
+
+    def stateful_query(self, sql: str) -> Union[gpd.GeoDataFrame, pd.DataFrame, None]:
+        try:
+            with self.engine.begin() as conn:
+                result = conn.execute(text(sql))
+                if result.returns_rows:
+                    rows = result.fetchall()
+                    column_names = result.keys()
+                    if rows:
+                        geospatial_columns = {}
+                        for idx, col in enumerate(result._result_columns):
+                            col_type = getattr(col, "type", None)
+                            if col_type and col_type.oid in self.geo_dtypes:
+                                geospatial_columns[column_names[idx]] = self.geo_dtypes[
+                                    col_type.oid
+                                ]
+                        if geospatial_columns:
+                            df = gpd.GeoDataFrame(rows, columns=column_names)
+                            geom_col = next(iter(geospatial_columns.keys()), None)
+                            df.set_geometry(geom_col, inplace=True)
+                            for col, dtype in geospatial_columns.items():
+                                if col != df.geometry.name:
+                                    df[col] = gpd.GeoSeries.from_wkb(df[col], crs=df.crs)
+                        else:
+                            df = pd.DataFrame(rows, columns=column_names)
+                        print(f"Query executed successfully. Rows returned: {len(df)}")
+                        return df
+                    else:
+                        print("Query executed successfully, but no rows were returned.")
+                        return pd.DataFrame(columns=column_names)
+                else:
+                    print(f"SQL command executed successfully. Rows affected: {result.rowcount}")
+                    return None
+        except Exception as e:
+            raise Exception(f"Error executing SQL query:\n{sql}\nError: {e}")
 
     def query(self, sql: str) -> Union[gpd.GeoDataFrame, pd.DataFrame]:
         geospatial_columns = self.geospatial_columns_in_query(sql)
